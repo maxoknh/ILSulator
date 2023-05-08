@@ -13,7 +13,7 @@ UScalar = 5
 # Planet Demand per Second
 ips = 44
 # Vessel Inputs
-VCount = 100
+VCount = 50
 dVSpeed = 1200
 VCargo = 600
 # Takeoff/Landing Adjustments
@@ -75,12 +75,73 @@ def orbitSim(t):
         0 - RA * np.sin(lambdaA * t) * np.sin(thetaF), 2)) - 2 * DAdjust) / VSpeed)))
 
 
-# print("%f" % orbitSim(1))
-
-
 # Build the time step array
 T = np.arange(start, stop, step, np.int64)
 
+
+def Fa(t):
+    res = np.zeros_like(t)
+    marker = 0
+    for i, val in enumerate(t):
+        res[i] = res[i-1] + integrate.quad(orbitSim, marker, val)[0] - (ips * (val - marker))
+        marker += 1
+    return res
+
+
+def Fb(t):
+    res = np.zeros_like(t)
+    marker = 0
+    for i, val in enumerate(t):
+        res[i] = res[i-1] + integrate.quad(orbitSim, marker, val)[0]
+        marker += 1
+    return res
+
+
+OrbitWithNegative = Fa(T)
+OrbitWithoutNegative = Fb(T)
+
+
+# findPeakData finds the local minima and maxima, does a few basic operations, and returns the results.
+# If there are no local extrema (e.g. Transportation always exceeds factory needs), returns Null
+def findPeakData(Orbit, test=False):
+    maximaIndices = signal.find_peaks(Orbit)[0]
+    maxima = Orbit[maximaIndices]
+    minima = Orbit[signal.find_peaks(-Orbit)[0]]
+    if maxima.size == 0:
+        if test:
+            print("No extrema!")
+        return None
+    extIndDiff = maxima.size - minima.size
+    maxToMin = np.subtract(minima[0:minima.size+(1*extIndDiff)], maxima[0:maxima.size-(1*extIndDiff)])
+    minToMax = np.subtract(maxima[1:], minima[0:minima.size+(2*extIndDiff)])
+    avgMaxToMin = np.average(maxToMin)
+    avgMinToMax = np.average(minToMax)
+    avgGainPerCycle = np.average(np.subtract(maxima[1:maxima.size], maxima[0:maxima.size-1]))
+    avgCycleTime = np.average(np.subtract(maximaIndices[1:maximaIndices.size], maximaIndices[0:maximaIndices.size-1]))
+    if test:
+        print("fPDv2: Average Peak to Trough difference: %f" % avgMaxToMin)
+        print("fPDv2: Average Trough to Peak difference: %f" % avgMinToMax)
+        print("fPDv2: Average Maximum Peak: %f" % np.average(maxima))
+        print("fPDv2: Average Minimum Peak: %f" % np.average(minima))
+        print("fPDv2: Average Gain Per Cycle: %f" % avgGainPerCycle)
+        print("fPDv2: Average Cycle Time: %f" % avgCycleTime)
+    return [maxima, minima, avgMaxToMin, avgMinToMax, avgGainPerCycle, avgCycleTime]
+
+
+findPeakData(OrbitWithNegative, True)
+# print("Average time between peaks: %d" % np.average(np.append(highPeaks[1], lowPeaks[1])))
+# slope, intercept = stat.linear_regression(OrbitWithNegative, T, proportional=True)
+# print("The average increase in storage is: %f items/s" % slope)
+
+
+# test()
+#plt.plot(T, Fa(T))
+#plt.show()
+# plt.plot(findPeaks())
+# plt.show()
+
+
+# Older, more monstrous iterations of some functions
 """
 # Integrates the orbital sim according to an array of input times
 # If the step size reaches 500,000, the integral will be broken up into 500,000 step-sized chunks to preserve precision
@@ -102,42 +163,6 @@ def F(t):
             res[i] = y
         res[i] = res[i] - (ips * val)
     return res
-"""
-
-def Fa(t):
-    res = np.zeros_like(t)
-    marker = 0
-    for i, val in enumerate(t):
-        if i > 0:
-            res[i] = res[i - 1] + integrate.quad(orbitSim, marker, val)[0]
-            res[i] = res[i] - (ips * (val - marker))
-            marker = marker + step
-        else:
-            res[i] = integrate.quad(orbitSim, marker, val)[0] - (ips * (val - marker))
-    return res
-
-
-def Fb(t):
-    res = np.zeros_like(t)
-    marker = 0
-    for i, val in enumerate(t):
-        if i > 0:
-            res[i] = res[i - 1] + integrate.quad(orbitSim, marker, val)[0]
-            marker = marker + step
-        else:
-            res[i] = integrate.quad(orbitSim, marker, val)[0]
-    return res
-
-
-"""
-def test():
-    out = F(T)
-    for i, val in enumerate(T):
-        print("%f, %f" % (val, out[i]))
-"""
-
-OrbitWithNegative = Fa(T)
-OrbitWithoutNegative = Fb(T)
 
 
 def findPeaks(Orbit):
@@ -195,16 +220,8 @@ def printPeaks():
     print("Maximum difference pre peak: %d" % maxBef)
     print("Maximum difference post peak: %d" % maxAft)
     print("Average item gain per cycle: %d" % (avgBef / avgBefCount - avgAfter / avgAfterCount))
-
-
-def findPeakData(Orbit):
-    maxim = signal.find_peaks(Orbit)
-    minim = signal.find_peaks(-Orbit)
-    if (minim[0].size != 0 and maxim[0].size != 0):
-    avgMax =
-    avgMin =
-    avgTroughToPeak =
-
+    
+    
 def splitPeaks():
     highs = np.zeros_like(mixedPeaks[0])
     highInd = np.zeros_like(mixedPeaks[0])
@@ -218,18 +235,9 @@ def splitPeaks():
             lows[i // 2] = val
             lowInd[i // 2] = mixedPeaks[1][i]
     return [(np.trim_zeros(highs), np.trim_zeros(highInd)), (np.trim_zeros(lows), np.trim_zeros(lowInd))]
-
-
+    
 peaks = splitPeaks()
 highPeaks = peaks[0]
 lowPeaks = peaks[1]
-# print("Average time between peaks: %d" % np.average(np.append(highPeaks[1], lowPeaks[1])))
-slope, intercept = stat.linear_regression(OrbitWithNegative, T, proportional=True)
-print("The average increase in storage is: %f items/s" % slope)
-
-# printPeaks()
-# test()
-plt.plot(T, Fa(T))
-plt.show()
-# plt.plot(findPeaks())
-# plt.show()
+printPeaks()
+"""
