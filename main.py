@@ -2,15 +2,14 @@ import scipy.integrate as integrate
 import scipy.signal as signal
 import numpy as np
 import matplotlib.pyplot as plt
-import statistics as stat
 
-# Inputs (Angles are in decimal degrees)
+# Inputs (Angles are in decimal degrees!)
 # Graph Parameters (seconds)
 start = 0
 stop = 1000000
 step = 100
-UScalar = 5
-# Planet Demand per Second
+UScalar = 5     # Divides distances/speeds by 10^x. Keeps numbers computer-reasonable.
+# Item Demand per Second
 ips = 44
 # Vessel Inputs
 VCount = 50
@@ -46,7 +45,7 @@ lambdaB = (2 * np.pi) / TB
 VFac = VCount * VCargo
 
 
-# Find the normal of both orbits and find the angle between them
+# Calculates the difference in inclination between the two orbits being compared.
 def findAngleDifference():
     # Calculate the normal vectors' cartesian values
     Nax = np.cos(lanA) * np.cos(thetaA)
@@ -64,11 +63,11 @@ def findAngleDifference():
 thetaF = findAngleDifference()
 
 
-# Convert the orbits into parametric equations, and calculate the distance between them at a given time.
+# Convert the parameters into parametric equations modeling the orbits, and calculates the distance between
+# them at a given time.
 # DAdjust takes off some distance from each planet, and the distance is then converted into vessel travel time.
-# VDelay adds some time to account for take off and landing, and then VFac converts this into
-# VFac then converts the time into items/s.
-def orbitSim(t):
+# VDelay adds some time to account for take off and landing, VFac then converts the time into items/s.
+def itemSim(t):
     return (VFac / (4 * VDelay + 2 * ((np.sqrt(np.power(
         RB * np.sin(lambdaB * t) - RA * np.sin(lambdaA * t) * np.cos(thetaF), 2) + np.power(
         RB * np.cos(lambdaB * t) - RA * np.cos(lambdaA * t), 2) + np.power(
@@ -79,11 +78,13 @@ def orbitSim(t):
 T = np.arange(start, stop, step, np.int64)
 
 
+# Fa and Fb integrates the item/s over time data into an item count.
+# Fa subtracts the item/s that the factory requires, while Fb does not
 def Fa(t):
     res = np.zeros_like(t)
     marker = 0
     for i, val in enumerate(t):
-        res[i] = res[i-1] + integrate.quad(orbitSim, marker, val)[0] - (ips * (val - marker))
+        res[i] = res[i-1] + integrate.quad(itemSim, marker, val)[0] - (ips * (val - marker))
         marker += 1
     return res
 
@@ -92,13 +93,14 @@ def Fb(t):
     res = np.zeros_like(t)
     marker = 0
     for i, val in enumerate(t):
-        res[i] = res[i-1] + integrate.quad(orbitSim, marker, val)[0]
+        res[i] = res[i-1] + integrate.quad(itemSim, marker, val)[0]
         marker += 1
     return res
 
 
-OrbitWithNegative = Fa(T)
-OrbitWithoutNegative = Fb(T)
+# Simulate the storage while it is being drained and while it is not
+simWithDrain = Fa(T)
+simWithoutDrain = Fb(T)
 
 
 # findPeakData finds the local minima and maxima, does a few basic operations, and returns the results.
@@ -128,116 +130,8 @@ def findPeakData(Orbit, test=False):
     return [maxima, minima, avgMaxToMin, avgMinToMax, avgGainPerCycle, avgCycleTime]
 
 
-findPeakData(OrbitWithNegative, True)
-# print("Average time between peaks: %d" % np.average(np.append(highPeaks[1], lowPeaks[1])))
+findPeakData(simWithDrain, True)
 # slope, intercept = stat.linear_regression(OrbitWithNegative, T, proportional=True)
 # print("The average increase in storage is: %f items/s" % slope)
-
-
-# test()
-#plt.plot(T, Fa(T))
-#plt.show()
-# plt.plot(findPeaks())
-# plt.show()
-
-
-# Older, more monstrous iterations of some functions
-"""
-# Integrates the orbital sim according to an array of input times
-# If the step size reaches 500,000, the integral will be broken up into 500,000 step-sized chunks to preserve precision
-def F(t):
-    res = np.zeros_like(t)
-    for i, val in enumerate(t):
-        chunkSize = 500000
-        chunk = val // chunkSize
-        if chunk > 0:
-            for v in range(chunk):
-                a = chunkSize * v
-                b = chunkSize * (v + 1)
-                y = integrate.quad(orbitSim, a, b)[0]
-                res[i] = res[i] + y
-            yf = integrate.quad(orbitSim, chunkSize * chunk, val)[0]
-            res[i] = res[i] + yf
-        else:
-            y = integrate.quad(orbitSim, 0, val)[0]
-            res[i] = y
-        res[i] = res[i] - (ips * val)
-    return res
-
-
-def findPeaks(Orbit):
-    mark = 0
-    num = 0
-    increasing = False
-    res = np.zeros_like(Orbit)
-    resInd = np.zeros_like(Orbit)
-    for i, val in enumerate(Orbit):
-        if val > mark:
-            if not increasing:
-                increasing = True
-                res[num] = mark
-                resInd[num] = i
-                num += 1
-            mark = val
-        elif val < mark:
-            if increasing:
-                increasing = False
-                res[num] = mark
-                resInd[num] = i
-                num += 1
-            mark = val
-    return np.trim_zeros(res), np.trim_zeros(resInd)
-
-
-mixedPeaks = findPeaks(OrbitWithNegative)
-
-
-def printPeaks():
-    avgBef = 0
-    avgBefCount = 0
-    avgAfter = 0
-    avgAfterCount = 0
-    maxBef = 0
-    maxAft = 0
-    for i, val in enumerate(mixedPeaks[0]):
-        if i == mixedPeaks[0].size - 1 or val > mixedPeaks[0][i + 1]:
-            if i != 0:
-                dbp = val - mixedPeaks[0][i - 1]
-                avgBef += dbp
-                avgBefCount += 1
-                # print("Difference before peak: %d" % dbp)
-                if dbp > maxBef:
-                    maxBef = dbp
-            if i < mixedPeaks[0].size - 1:
-                dap = val - mixedPeaks[0][i + 1]
-                avgAfter += dap
-                avgAfterCount += 1
-                # print("Difference after peak: %d" % dap)
-                if dap > maxAft:
-                    maxAft = dap
-    print("Average difference pre peak: %d" % (avgBef / avgBefCount))
-    print("Average difference post peak: %d" % (avgAfter / avgAfterCount))
-    print("Maximum difference pre peak: %d" % maxBef)
-    print("Maximum difference post peak: %d" % maxAft)
-    print("Average item gain per cycle: %d" % (avgBef / avgBefCount - avgAfter / avgAfterCount))
-    
-    
-def splitPeaks():
-    highs = np.zeros_like(mixedPeaks[0])
-    highInd = np.zeros_like(mixedPeaks[0])
-    lows = np.zeros_like(mixedPeaks[0])
-    lowInd = np.zeros_like(mixedPeaks[0])
-    for i, val in enumerate(mixedPeaks[0]):
-        if i % 2 == 0:
-            highs[i // 2] = val
-            highInd[i // 2] = mixedPeaks[1][i]
-        else:
-            lows[i // 2] = val
-            lowInd[i // 2] = mixedPeaks[1][i]
-    return [(np.trim_zeros(highs), np.trim_zeros(highInd)), (np.trim_zeros(lows), np.trim_zeros(lowInd))]
-    
-peaks = splitPeaks()
-highPeaks = peaks[0]
-lowPeaks = peaks[1]
-printPeaks()
-"""
+plt.plot(T, simWithDrain)
+plt.show()
