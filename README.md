@@ -1,0 +1,4 @@
+# ILSulator
+ILSulator is a simple instrastellar item throughput calculator for Dyson Sphere Program's Interstellar Logistics Stations. ILSulator uses basic orbital parameters you can get from in DSP, and the level of your vessels to calculate the minimum number of vessels and smallest buffer size you need to sustain a resource sink between two planets, with or without warp. ILSulator will also calculate the size of the buffer needed for a given number of ships.
+
+ILSulator works by mathematically modeling the distance between two planets over time using their orbital parameters. Using this, the rate that items are moved from one planet to another can be calculated. The integral of this rate allows the user to determine the required buffer sizes (if any) and vessel counts in order to make some certain item/s requirement sustainable.
