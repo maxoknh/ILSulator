@@ -7,12 +7,12 @@ import matplotlib.pyplot as plt
 # Graph Parameters (seconds)
 start = 0
 stop = 1000000
-step = 100
+step = 1000
 UScalar = 5     # Divides distances/speeds by 10^x. Keeps numbers computer-reasonable.
 # Item Demand per Second
-ips = 44
+ips = 48
 # Vessel Inputs
-VCount = 50
+VCount = 60
 dVSpeed = 1200
 VCargo = 600
 # Takeoff/Landing Adjustments
@@ -84,8 +84,11 @@ def Fa(t):
     res = np.zeros_like(t)
     marker = 0
     for i, val in enumerate(t):
-        res[i] = res[i-1] + integrate.quad(itemSim, marker, val)[0] - (ips * (val - marker))
-        marker += 1
+        if i > 0:
+            res[i] = res[i-1] + integrate.quad(itemSim, marker, val)[0] - (ips * (val - marker))
+            marker += step
+        else:
+            res[i] = integrate.quad(itemSim, marker, val)[0] - (ips * (val - marker))
     return res
 
 
@@ -93,8 +96,11 @@ def Fb(t):
     res = np.zeros_like(t)
     marker = 0
     for i, val in enumerate(t):
-        res[i] = res[i-1] + integrate.quad(itemSim, marker, val)[0]
-        marker += 1
+        if i > 0:
+            res[i] = res[i-1] + integrate.quad(itemSim, marker, val)[0]
+            marker += step
+        else:
+            res[i] = integrate.quad(itemSim, marker, val)[0]
     return res
 
 
@@ -108,11 +114,11 @@ simWithoutDrain = Fb(T)
 # Returns an array of:
 # Maxima values array
 # Minima values array
-# Average net loss or gain over time
+# Average gain per cycle
 # Average cycle time as the average time between each cycle's minimum distance.
 # (in ascending time) Avg of the local maxima - minima (loss per cycle while planets are distant, average needed buffer)
 # Maximum of the values of maxima - minima (absolute minimum buffer size for 100% uptime)
-# (in ascending time) Avg of local minima - maxima (gain per cycle while planets are close, buffer size+net gain)
+# (in ascending time) Avg of local minima - maxima (gain per cycle while planets are close, buffer size+gain per cycle)
 def findPeakData(Orbit, test=False):
     maximaIndices = signal.find_peaks(Orbit)[0]
     maxima = Orbit[maximaIndices]
@@ -129,13 +135,12 @@ def findPeakData(Orbit, test=False):
     avgGainPerCycle = np.average(np.subtract(maxima[1:maxima.size], maxima[0:maxima.size-1]))
     avgCycleTime = np.average(np.subtract(maximaIndices[1:maximaIndices.size], maximaIndices[0:maximaIndices.size-1]))
     if test:
-        print("fPDv2: Average Peak to Trough difference: %f" % avgMaxToMin)
-        print("fPDv2: Average Trough to Peak difference: %f" % avgMinToMax)
-        print("fPDv2: Average Maximum Peak: %f" % np.average(maxima))
-        print("fPDv2: Average Minimum Peak: %f" % np.average(minima))
-        print("fPDv2: Average Gain Per Cycle: %f" % avgGainPerCycle)
-        print("fPDv2: Average Cycle Time: %f" % avgCycleTime)
-    return [maxima, minima, avgGainPerCycle, avgCycleTime, avgMaxToMin, np.maximum(avgMaxToMin), avgMinToMax]
+        print("Average gain per cycle: %.3f" % avgGainPerCycle)
+        print("Average cycle time: %.3f" % (avgCycleTime*2))
+        print("Average needed buffer per side: %.3f" % np.abs(avgMaxToMin))
+        print("Maximum needed buffer per side: %d" % np.ceil(np.amax(np.abs(maxToMin))))
+        print("Average buffer + gain: %.3f" % avgMinToMax)
+    return [maxima, minima, avgGainPerCycle, avgCycleTime, avgMaxToMin, np.amax(maxToMin), avgMinToMax]
 
 
 findPeakData(simWithDrain, True)
