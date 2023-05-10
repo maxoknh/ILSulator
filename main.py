@@ -104,7 +104,15 @@ simWithoutDrain = Fb(T)
 
 
 # findPeakData finds the local minima and maxima, does a few basic operations, and returns the results.
-# If there are no local extrema (e.g. Transportation always exceeds factory needs), returns Null
+# If there are no local extrema (Transportation always/never meets factory needs regardless of distance), returns Null
+# Returns an array of:
+# Maxima values array
+# Minima values array
+# Average net loss or gain over time
+# Average cycle time as the average time between each cycle's minimum distance.
+# (in ascending time) Avg of the local maxima - minima (loss per cycle while planets are distant, average needed buffer)
+# Maximum of the values of maxima - minima (absolute minimum buffer size for 100% uptime)
+# (in ascending time) Avg of local minima - maxima (gain per cycle while planets are close, buffer size+net gain)
 def findPeakData(Orbit, test=False):
     maximaIndices = signal.find_peaks(Orbit)[0]
     maxima = Orbit[maximaIndices]
@@ -127,7 +135,7 @@ def findPeakData(Orbit, test=False):
         print("fPDv2: Average Minimum Peak: %f" % np.average(minima))
         print("fPDv2: Average Gain Per Cycle: %f" % avgGainPerCycle)
         print("fPDv2: Average Cycle Time: %f" % avgCycleTime)
-    return [maxima, minima, avgMaxToMin, avgMinToMax, avgGainPerCycle, avgCycleTime]
+    return [maxima, minima, avgGainPerCycle, avgCycleTime, avgMaxToMin, np.maximum(avgMaxToMin), avgMinToMax]
 
 
 findPeakData(simWithDrain, True)
