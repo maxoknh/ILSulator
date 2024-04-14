@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 # Set your desired transfer rate between the planets
 # Set your cargo vessel stats, which can be found on the right side of the upgrade tab under 'Interstellar Vessel Upgrades'
 # Choose your number of cargo vessels you wish to use
-# Repeat until graph does not intersect with zero.
+# Repeat until desired results are achieved.
 
 # Inputs
 
