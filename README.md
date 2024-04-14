@@ -7,6 +7,6 @@ ILSulator only works with two planets which orbit the same body. ILSulator canno
 ILSulator works by modeling the distance between two planets over time using their orbital parameters. Using this, the rate that items are moved from one planet to another can be calculated. 
 The integral of this rate allows the user to determine the required buffer sizes (if needed) and vessel counts in order to sustain items on another planet. 
 Note that this does not actually simulate the vessels flying back and forth, only the number of items that could be moved given any single slice of time accumulated over many steps. 
-It will not be 100% accurate due to vessel travel time and the movement of planets creating a doppler effect, which I cannot be bothered to code. But it can produce a good approximation.
+It will not be 100% accurate due to vessel travel time and the movement of planets creating a doppler effect. But it can produce a good approximation.
 
 This project is currently usable but is unfinished and is not user friendly. It will require some knowledge of coding in order to work.
