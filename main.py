@@ -145,10 +145,10 @@ def simWithoutDrain(t):
 # Maxima values array
 # Minima values array
 # Average gain per cycle
-# Average cycle time as the average time between each cycle's minimum distance.
-# (in ascending time) Avg of the local maxima - minima (loss per cycle while planets are distant, average needed buffer)
+# Average cycle time as the average time between each cycle's maximum distance.
+# Avg of the local maxima - minima (loss per cycle while planets are distant, average needed buffer)
 # Maximum of the values of maxima - minima (absolute minimum buffer size for 100% uptime)
-# (in ascending time) Avg of local minima - maxima (gain per cycle while planets are close, buffer size+gain per cycle)
+# Avg of local minima - maxima (gain per cycle while planets are close, buffer size+gain per cycle)
 def findPeakData(data, t, verbo=True):
     maximaIndices = signal.find_peaks(data)[0]
     
