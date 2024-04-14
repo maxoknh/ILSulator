@@ -3,43 +3,70 @@ import scipy.signal as signal
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Inputs (Angles are in decimal degrees!)
-# Graph Parameters (seconds)
-start = 0
-stop = 1000000
-step = 1000
-UScalar = 5     # Divides distances/speeds by 10^x. Keeps numbers computer-reasonable.
+# Only works with concentric orbits.
+
+# Inputs
+
 # Item Demand per Second
-ips = 48
-# Vessel Inputs
-VCount = 60
-dVSpeed = 1200
-VCargo = 600
-# Takeoff/Landing Adjustments
+ips = 24
+# Vessel Stats
+VCount = 6
+dVSpeed = 600
+VCargo = 200
+
+# Planet A:
+# Orbit Radius (AU)
+dRA = .105
+# Orbital Period (seconds)
+TA = 2048
+# Orbit Inclination (degrees, minutes)
+dInclinationA = 11
+dInclinationAminutes = 47
+# Longitude of Ascending Node (degrees, minutes)
+dlanA = 83
+dlanAminutes = 37
+
+# Planet B:
+# Orbit Radius (AU)
+dRB = .065
+# Orbital Period (seconds)
+TB = 993
+# Orbit Inclination (degrees, minutes)
+dInclinationB = 7
+dInclinationBminutes = 16
+# Longitude of Ascending Node (degrees, minutes)
+dlanB = 42
+dlanBminutes = 41
+
+# Simulation Time Parameters (seconds). Based on orbit with longest period.
+# If step is too fine, (~5000 steps per revolution,) output seems to break.
+revolutions = 5
+stepsPerRevolution = 2000
+start = 0
+stop = np.maximum(TA,TB) * revolutions
+step = stop/(revolutions * stepsPerRevolution)
+
+# Takeoff/Landing Assumptions (seconds, meters)
 VDelay = 12
 dDAdjust = 2500
-# Inclination
-dthetaA = 6.23
-dthetaB = 6.88
-# Longitude of Ascending Node
-dlanA = 38.32
-dlanB = 126.85
-# Orbital Period
-TA = 18238
-TB = 27636
-# Orbital Radius
-dRA = 332520
-dRB = 438680
+
+# Divides all numbers used by 10^x. Prevents integer overflow. May lower accuracy.
+UScalar = 0
+
+
+
+
+
 
 # Conversion Values (d)
 VSpeed = dVSpeed / np.power(10, UScalar)
-RA = dRA / np.power(10, UScalar)
-RB = dRB / np.power(10, UScalar)
+RA = dRA * 40000 / np.power(10, UScalar)
+RB = dRB * 40000 / np.power(10, UScalar)
 DAdjust = dDAdjust / np.power(10, UScalar)
-thetaA = np.radians(dthetaA + 90)
-thetaB = np.radians(dthetaB + 90)
-lanA = np.radians(dlanA + 90)
-lanB = np.radians(dlanB + 90)
+thetaA = np.radians(dInclinationA + (dInclinationAminutes / 60) + 90)
+thetaB = np.radians(dInclinationB + (dInclinationBminutes / 60) + 90)
+lanA = np.radians(dlanA + (dlanAminutes / 60) + 90)
+lanB = np.radians(dlanB + (dlanBminutes / 60) + 90)
 lambdaA = (2 * np.pi) / TA
 lambdaB = (2 * np.pi) / TB
 VFac = VCount * VCargo
@@ -68,45 +95,32 @@ thetaF = findAngleDifference()
 # DAdjust takes off some distance from each planet, and the distance is then converted into vessel travel time.
 # VDelay adds some time to account for take off and landing, VFac then converts the time into items/s.
 def itemSim(t):
-    return (VFac / (4 * VDelay + 2 * ((np.sqrt(np.power(
-        RB * np.sin(lambdaB * t) - RA * np.sin(lambdaA * t) * np.cos(thetaF), 2) + np.power(
-        RB * np.cos(lambdaB * t) - RA * np.cos(lambdaA * t), 2) + np.power(
-        0 - RA * np.sin(lambdaA * t) * np.sin(thetaF), 2)) - 2 * DAdjust) / VSpeed)))
+    return (VFac / (4 * VDelay + 2 * (
+        (np.sqrt(np.power(
+        RB * np.sin(lambdaB * t) - 
+        RA * np.sin(lambdaA * t) * np.cos(thetaF), 2) + 
+        np.power(RB * np.cos(lambdaB * t) - RA * np.cos(lambdaA * t), 2) + 
+        np.power(0 - RA * np.sin(lambdaA * t) * np.sin(thetaF), 2)) - 2 * DAdjust) / VSpeed)))
 
 
 # Build the time step array
 T = np.arange(start, stop, step, np.int64)
 
 
-# Fa and Fb integrates the item/s over time data into an item count.
-# Fa subtracts the item/s that the factory requires, while Fb does not
-def Fa(t):
+# Integrates the item/s data into an item count.
+# One accounts for the item/s demand, while the other does not
+def simWithDrain(t):
     res = np.zeros_like(t)
-    marker = 0
-    for i, val in enumerate(t):
-        if i > 0:
-            res[i] = res[i-1] + integrate.quad(itemSim, marker, val)[0] - (ips * (val - marker))
-            marker += step
-        else:
-            res[i] = integrate.quad(itemSim, marker, val)[0] - (ips * (val - marker))
+    for i in range(1, t.size, 1):
+        res[i] = np.maximum(res[i-1] + integrate.quad(itemSim, t[i-1], t[i])[0] - (ips * (t[i] - t[i-1])), 0)
     return res
 
 
-def Fb(t):
+def simWithoutDrain(t):
     res = np.zeros_like(t)
-    marker = 0
-    for i, val in enumerate(t):
-        if i > 0:
-            res[i] = res[i-1] + integrate.quad(itemSim, marker, val)[0]
-            marker += step
-        else:
-            res[i] = integrate.quad(itemSim, marker, val)[0]
+    for i in range(1, t.size, 1):
+        res[i] = res[i-1] + integrate.quad(itemSim, t[i-1], t[i])[0]
     return res
-
-
-# Simulate the storage while it is being drained and while it is not
-simWithDrain = Fa(T)
-simWithoutDrain = Fb(T)
 
 
 # findPeakData finds the local minima and maxima, does a few basic operations, and returns the results.
@@ -119,32 +133,37 @@ simWithoutDrain = Fb(T)
 # (in ascending time) Avg of the local maxima - minima (loss per cycle while planets are distant, average needed buffer)
 # Maximum of the values of maxima - minima (absolute minimum buffer size for 100% uptime)
 # (in ascending time) Avg of local minima - maxima (gain per cycle while planets are close, buffer size+gain per cycle)
-def findPeakData(Orbit, test=False):
-    maximaIndices = signal.find_peaks(Orbit)[0]
-    maxima = Orbit[maximaIndices]
-    minima = Orbit[signal.find_peaks(-Orbit)[0]]
-    if maxima.size == 0:
-        if test:
-            print("No extrema!")
+def findPeakData(data, t, verbo=True):
+    maximaIndices = signal.find_peaks(data)[0]
+    
+    if maximaIndices.size == 0:
+        if verbo: print("No extrema!")
         return None
-    extIndDiff = maxima.size - minima.size
-    maxToMin = np.subtract(minima[0:minima.size+(1*extIndDiff)], maxima[0:maxima.size-(1*extIndDiff)])
-    minToMax = np.subtract(maxima[1:], minima[0:minima.size+(2*extIndDiff)])
+
+    maxima = data[maximaIndices]
+    maximaTimes = t[maximaIndices]    
+    minima = data[signal.find_peaks(-data)[0]]
+    comIndice = np.minimum(maxima.size, minima.size)
+    maxToMin = np.subtract(maxima[0:comIndice], minima[0:comIndice])
+    minToMax = np.subtract(minima[0:comIndice-1], maxima[1:comIndice])
     avgMaxToMin = np.average(maxToMin)
     avgMinToMax = np.average(minToMax)
-    avgGainPerCycle = np.average(np.subtract(maxima[1:maxima.size], maxima[0:maxima.size-1]))
-    avgCycleTime = np.average(np.subtract(maximaIndices[1:maximaIndices.size], maximaIndices[0:maximaIndices.size-1]))
-    if test:
-        print("Average gain per cycle: %.3f" % avgGainPerCycle)
-        print("Average cycle time: %.3f" % (avgCycleTime*2))
+    avgGainPerCycle = np.average(np.subtract(maxima[1:], maxima[0:maxima.size-1]))
+    avgCycleTime = np.average(np.subtract(maximaTimes[1:], maximaTimes[0:maximaTimes.size-1]))
+    
+    if verbo:
+        print("Average Peak to Peak Gain per Cycle: %.3f" % avgGainPerCycle)
+        print("Maximum needed buffer per side/Maximum Peak to Trough Loss: %d" % np.ceil(np.amax(np.abs(maxToMin))))
+        print("////////////////////////////////////////////////////////////////////")
         print("Average needed buffer per side: %.3f" % np.abs(avgMaxToMin))
-        print("Maximum needed buffer per side: %d" % np.ceil(np.amax(np.abs(maxToMin))))
-        print("Average buffer + gain: %.3f" % avgMinToMax)
+        print("Average Trough to Peak Gain: %.3f" % np.abs(avgMinToMax))
+        print("Average Peak Cycle time: %.3f" % (avgCycleTime))
+        print("Number of maximums: %d" % (maxima.size))
+        print("Number of minimums: %d" % (minima.size))
+
     return [maxima, minima, avgGainPerCycle, avgCycleTime, avgMaxToMin, np.amax(maxToMin), avgMinToMax]
 
-
-findPeakData(simWithDrain, True)
-# slope, intercept = stat.linear_regression(OrbitWithNegative, T, proportional=True)
-# print("The average increase in storage is: %f items/s" % slope)
-plt.plot(T, simWithDrain)
+finalData = simWithDrain(T)
+findPeakData(finalData, T)
+plt.plot(T, finalData)
 plt.show()
