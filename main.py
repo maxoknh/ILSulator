@@ -180,8 +180,8 @@ def findPeakData(data, t, verbo=True):
             break
     
     if verbo:
-        print("Average Peak to Peak Gain per Cycle: %.3f" % avgGainPerCycle)
-        print("Maximum needed buffer per side (Maximum Max-to-Min Loss): %d" % np.ceil(np.amax(np.abs(maxToMin))))
+        print("Average Peak to Peak Gain per Cycle: %.3f items" % avgGainPerCycle)
+        print("Maximum needed buffer per side (Maximum Max-to-Min Loss): %d items" % np.ceil(np.amax(np.abs(maxToMin))))
         if bufferDepletes and bufferDepletesFirstCycle:
             print("Vessel count cannot sustain this demand!")
         elif not bufferDepletes and bufferDepletesFirstCycle:
@@ -190,13 +190,13 @@ def findPeakData(data, t, verbo=True):
             print("Vessel count cannot sustain demand. Starting buffer will delay depletion by at least one cycle.")
         else:
             print("Vessel count always sustains demand.")
-        print("Starting buffer needed (Max Peak - First Peak): %.3f" % (np.ceil(np.amax(np.abs(maxToMin))) - maxima[0]))
+        print("Starting buffer needed (Max Peak - First Peak): %.3f items" % (np.ceil(np.amax(np.abs(maxToMin))) - maxima[0]))
         print("/////////////////////////////////Other Statistics///////////////////////////////////")
         print("Vessel count: %d vessels" % VCount)
         print("First Peak Height: %.3f items" % maxima[0])
         print("Average needed buffer per side: %.3f items" % np.abs(avgMaxToMin))
         print("Average Min-to-Max Gain: %.3f items" % np.abs(avgMinToMax))
-        print("Average Time Between Peaks: %.3f seconds" % (avgCycleTime))
+        print("Average Time Between Peaks: %.3f seconds (%dh%dm%ds)" % (avgCycleTime, avgCycleTime//3600, (avgCycleTime%3600)/60, (avgCycleTime%3600)%60))
         print("Number of maximums: %d" % (maxima.size))
         print("Number of minimums: %d" % (minima.size))
 
