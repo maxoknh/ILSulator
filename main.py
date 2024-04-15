@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 # How to use:
 # Choose your planets, copy their orbital stats into the area below
 # Set your desired transfer rate between the planets
-# Set your cargo vessel stats, which can be found on the right side of the upgrade tab under 'Interstellar Logistics Vessel'
-# Choose your number of cargo vessels you wish to use
+# Set your cargo vessel stats, which can be found on the right side of the upgrade tab in research under 'Interstellar Logistics Vessel'
+# Choose the number of cargo vessels you wish to use
 # Repeat until desired results are achieved.
 
 # Inputs
